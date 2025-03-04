@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Pirate Fantasy Roguelike.sln"
+    "dotnet.defaultSolution": "Pirate-Fantasy-Roguelike.sln"
 }
