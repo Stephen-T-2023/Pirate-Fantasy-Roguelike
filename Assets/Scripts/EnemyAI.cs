@@ -1,94 +1,90 @@
 using UnityEngine;
-using UnityEngine.AI;
+using System.Collections;
 
 public class EnemyAI : MonoBehaviour
 {
-    public NavMeshAgent agent;
+    public int maxHealth = 50;
+    private int currentHealth;
 
+    public float moveSpeed = 3f;
     public Transform player;
+    public float attackRange = 2f;
+    public int attackDamage = 10;
+    public float attackCooldown = 1.5f;
+    private float lastAttackTime;
 
-    public LayerMask whatIsGround, whatIsPlayer;
+    private Renderer enemyRenderer;
 
-    // Patrolling
-    public Vector3 walkPoint;
-    bool walkPointSet;
-    public float walPointRange;
-
-    // Attacking
-    public float timeBetweenAttacks;
-    bool alreadyAttacked;
-
-    // States
-    public float sightRange, attackRange;
-    public bool playerInSightRange, playerInAttackRange;
-
-    private void Awake()
+    void Start()
     {
-        player = GameObject.Find("PlayerArmature").transform;
-        agent = GetComponent<NavMeshAgent>();
+        currentHealth = maxHealth;
+        enemyRenderer = GetComponentInChildren<Renderer>(); // Get renderer for hit flash
     }
 
-    private void Update()
+    void Update()
     {
-        // Check for sight and attck range
-        playerInSightRange = Physics.CheckSphere(transform.position, sightRange, whatIsPlayer);
-        playerInAttackRange = Physics.CheckSphere(transform.position, attackRange, whatIsPlayer);
+        if (player == null) return;
 
-        if(!playerInSightRange && !playerInAttackRange) Patrolling();
-        if(playerInSightRange && !playerInAttackRange) ChasePlayer();
-        if(playerInSightRange && playerInAttackRange) AttackPlayer();
-    }
+        float distance = Vector3.Distance(transform.position, player.position);
 
-    private void Patrolling()
-    {
-        if(!walkPointSet) SearchWalkPoint();
-
-        if(walkPointSet)
-            agent.SetDestination(walkPoint);
-
-        Vector3 distanceToWalkPoint = transform.position - walkPoint;
-
-        // Walkpoint reached
-        if(distanceToWalkPoint.magnitude < 1f)
-            walkPointSet = false;
-    }
-
-    private void SearchWalkPoint()
-    {
-        // Calculate random point in range
-        float randomZ = Random.Range(-walPointRange, walPointRange);
-        float randomX = Random.Range(-walPointRange, walPointRange);
-
-        walkPoint = new Vector3(transform.position.x + randomX, transform.position.y, transform.position.z + randomZ);
-
-        if(Physics.Raycast(walkPoint, -transform.up, 2f, whatIsGround))
-            walkPointSet = true;
-    }
-
-    private void ChasePlayer()
-    {
-        agent.SetDestination(player.position);
-    }
-
-    private void AttackPlayer()
-    {
-        agent.SetDestination(transform.position);
-
-        transform.LookAt(player);
-
-        if(!alreadyAttacked)
+        if (distance > attackRange)
         {
-            // Attack code here
-
-            //
-
-            alreadyAttacked = true;
-            Invoke(nameof(ResetAttack), timeBetweenAttacks);
+            MoveTowardPlayer();
+        }
+        else if (Time.time >= lastAttackTime + attackCooldown)
+        {
+            AttackPlayer();
         }
     }
 
-    private void ResetAttack()
+    void MoveTowardPlayer()
     {
-        alreadyAttacked = false;
+        transform.LookAt(player); // Face the player
+        transform.position = Vector3.MoveTowards(transform.position, player.position, moveSpeed * Time.deltaTime);
+    }
+
+    void AttackPlayer()
+    {
+        // lastAttackTime = Time.time;
+        // Debug.Log("Enemy attacks!");
+
+        // if (Vector3.Distance(transform.position, player.position) <= attackRange)
+        // {
+        //     player.GetComponent<PlayerHealth>()?.TakeDamage(attackDamage);
+        // }
+    }
+
+    // ** TAKES DAMAGE WHEN HIT **
+    public void TakeDamage(int damage)
+    {
+        currentHealth -= damage;
+        Debug.Log($"Enemy hit! HP: {currentHealth}");
+
+        StartCoroutine(HitFlash());
+
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+
+    // ** FLASH RED WHEN HIT **
+    private IEnumerator HitFlash()
+    {
+        if (enemyRenderer)
+        {
+            enemyRenderer.material.color = Color.red;
+            yield return new WaitForSeconds(0.1f);
+            enemyRenderer.material.color = Color.white;
+        }
+    }
+
+    // ** DIE WHEN HP REACHES 0 **
+    void Die()
+    {
+        Debug.Log("Enemy died!");
+        GetComponent<Collider>().enabled = false; // Disable hitbox
+        this.enabled = false;
+        Destroy(gameObject, 2f); // Destroy after 2 seconds
     }
 }
